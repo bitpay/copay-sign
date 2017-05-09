@@ -1,7 +1,7 @@
 Copay Sign
 =============
 
-These utilities allow you to prove control over a Copay multisignature wallet.
+These utilities allow you to prove ownership over a Copay multisignature wallet.
 
 ## Installation
 
@@ -11,9 +11,9 @@ Run `npm install`.
 
 `node sign.js <wallet-file> <message-file> <output-file>`
 
-If you have a two of three wallet, this needs to be done for two of the three copayers.
+If you have a two of three wallet, this needs to be done for two of the three copayers. You can get a wallet file by clicking Settings -> Your Wallet -> More Options -> Export Wallet.
 
-You can get a wallet file by clicking Settings -> Your Wallet -> More Options -> Export Wallet.
+The utility will reach out to BWS and get the current receive address index and the current change address index. It will compute all addresses up to these indexes. It will sign the message using the corresponding private key for each address.
 
 ## Combine signatures into one file
 
