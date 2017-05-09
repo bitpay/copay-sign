@@ -36,6 +36,7 @@ var threshold;
 var path;
 var hdPrivateKey;
 var clientXPubKeys;
+var copayerIndex;
 
 var count = 0;
 
@@ -61,21 +62,24 @@ ttyread('Password: ', {silent: true}, function(err, password) {
 
   //console.log(walletMetadata);
 
-  if(walletMetadata.derivationStrategy !== 'BIP44') {
-    throw new Error('Derivation strategy is not BIP44 (' + walletMetadata.derivationStrategy + ')');
+  if(['BIP44', 'BIP45'].indexOf(walletMetadata.derivationStrategy) === -1) {
+    throw new Error('Derivation strategy is not BIP44 or BIP45 (' + walletMetadata.derivationStrategy + ')');
   }
 
   if(!walletMetadata.compliantDerivation) {
     console.error('WARNING: compliantDerivation = false');
   }
 
-  //console.log(walletMetadata);
-
   network = walletMetadata.network;
   networkDerivation = network === 'testnet' ? '1' : '0';
   threshold = walletMetadata.m;
 
-  path = "m/44'/" + networkDerivation + "'/" + walletMetadata.account + "'";
+  if(walletMetadata.derivationStrategy === 'BIP44') {
+    path = "m/44'/" + networkDerivation + "'/" + walletMetadata.account + "'";
+  } else if(walletMetadata.derivationStrategy === 'BIP45') {
+    path = "m/45'";
+  }
+
   hdPrivateKey = new bitcore.HDPrivateKey(walletMetadata.xPrivKey).derive(path);
 
   clientXPubKeys = walletMetadata.publicKeyRing.map(function(ring) {
@@ -95,32 +99,44 @@ ttyread('Password: ', {silent: true}, function(err, password) {
       return;
     }
 
+    copayerIndex = status.wallet.addressManager.copayerIndex;
+
+    if(walletMetadata.derivationStrategy === 'BIP45' && !copayerIndex) {
+      throw new Error('Missing copayerIndex');
+    }
+
     var receiveAddressIndex = status.wallet.addressManager.receiveAddressIndex;
     var changeAddressIndex = status.wallet.addressManager.changeAddressIndex;
 
     console.log('receiveAddressIndex', receiveAddressIndex);
     console.log('changeAddressIndex', changeAddressIndex);
 
+    var indexPrefix = "m/";
+
+    if(walletMetadata.derivationStrategy === 'BIP45') {
+      indexPrefix += copayerIndex + '/';
+    }
+
     outStream.write('[\n');
 
     // Derive main addresses
     for(var i = 0; i < receiveAddressIndex - 1; i++) {
-      processAddress('m/0/' + i, false);
+      processAddress(indexPrefix + '0/' + i, false);
     }
 
     if(receiveAddressIndex && changeAddressIndex) {
-      processAddress('m/0/' + (receiveAddressIndex - 1), false);
+      processAddress(indexPrefix + '0/' + (receiveAddressIndex - 1), false);
     } else if(receiveAddressIndex) {
-      processAddress('m/0/' + (receiveAddressIndex - 1), true);
+      processAddress(indexPrefix + '0/' + (receiveAddressIndex - 1), true);
     }
 
     // Derive change addresses
     for(var i = 0; i < changeAddressIndex - 1; i++) {
-      processAddress('m/1/' + i, false);
+      processAddress(indexPrefix + '1/' + i, false);
     }
 
     if(changeAddressIndex) {
-      processAddress('m/1/' + (changeAddressIndex - 1), true);
+      processAddress(indexPrefix + '1/' + (changeAddressIndex - 1), true);
     }
 
     outStream.write(']\n');
