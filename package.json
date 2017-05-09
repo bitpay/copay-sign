@@ -1,0 +1,17 @@
+{
+  "name": "copay-sign",
+  "version": "0.0.1",
+  "description": "Prove control over a multisig copay wallet",
+  "main": "sign.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Patrick Nagurny",
+  "license": "MIT",
+  "dependencies": {
+    "bitcore-wallet-client": "^5.1.2",
+    "commander": "^2.9.0",
+    "jsonstream": "^1.0.3",
+    "ttyread": "^1.0.2"
+  }
+}
