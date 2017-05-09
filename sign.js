@@ -59,8 +59,10 @@ ttyread('Password: ', {silent: true}, function(err, password) {
 
   walletMetadata = JSON.parse(decryptedString);
 
+  //console.log(walletMetadata);
+
   if(walletMetadata.derivationStrategy !== 'BIP44') {
-    throw new Error('Derivation strategy is not BIP44 (' + walletMetadata.addressManager.derivationStrategy + ')');
+    throw new Error('Derivation strategy is not BIP44 (' + walletMetadata.derivationStrategy + ')');
   }
 
   if(!walletMetadata.compliantDerivation) {
