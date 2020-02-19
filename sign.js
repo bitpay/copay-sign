@@ -3,7 +3,7 @@
 
 var program = require('commander');
 var fs = require('fs');
-var Client = require('bitcore-wallet-client');
+var Client = require('bitcore-wallet-client').default;
 var bitcore = require('bitcore-lib');
 var Message = require('./message');
 var sjcl = require('sjcl');
@@ -60,12 +60,6 @@ ttyread('Password: ', {silent: true}, function(err, password) {
 
   walletMetadata = JSON.parse(decryptedString);
 
-  //console.log(walletMetadata);
-
-  if(['BIP44', 'BIP45'].indexOf(walletMetadata.derivationStrategy) === -1) {
-    throw new Error('Derivation strategy is not BIP44 or BIP45 (' + walletMetadata.derivationStrategy + ')');
-  }
-
   if(!walletMetadata.compliantDerivation) {
     console.error('WARNING: compliantDerivation = false');
   }
@@ -74,15 +68,11 @@ ttyread('Password: ', {silent: true}, function(err, password) {
   networkDerivation = network === 'testnet' ? '1' : '0';
   threshold = walletMetadata.m;
 
-  if(walletMetadata.derivationStrategy === 'BIP44') {
-    path = "m/44'/" + networkDerivation + "'/" + walletMetadata.account + "'";
-  } else if(walletMetadata.derivationStrategy === 'BIP45') {
-    path = "m/45'";
-  }
+  path = walletMetadata.credentials.rootPath;
 
-  hdPrivateKey = new bitcore.HDPrivateKey(walletMetadata.xPrivKey).derive(path);
+  hdPrivateKey = new bitcore.HDPrivateKey(walletMetadata.key.xPrivKey).derive(path);
 
-  clientXPubKeys = walletMetadata.publicKeyRing.map(function(ring) {
+  clientXPubKeys = walletMetadata.credentials.publicKeyRing.map(function(ring) {
     return new bitcore.HDPublicKey(ring.xPubKey);
   });
 
@@ -91,7 +81,7 @@ ttyread('Password: ', {silent: true}, function(err, password) {
     verbose: true
   });
 
-  client.import(decryptedString);
+  client.fromObj(walletMetadata.credentials);
 
   client.getStatus({includeExtendedInfo: true}, function(err, status) {
     if(err) {
@@ -140,6 +130,7 @@ ttyread('Password: ', {silent: true}, function(err, password) {
     }
 
     outStream.write(']\n');
+    outStream.close();
   });
 });
 
@@ -160,7 +151,7 @@ function processAddress(path, last) {
     throw new Error('Public key mismatch: ' + pub.toString());
   }
 
-  var script = bitcore.Script.buildMultisigOut(publicKeys, walletMetadata.m);
+  var script = bitcore.Script.buildMultisigOut(publicKeys, walletMetadata.credentials.m);
   var address = script.toScriptHashOut().toAddress(bitcore.Networks.get(network)).toString();
 
   var signature = Message(message).sign(priv);
