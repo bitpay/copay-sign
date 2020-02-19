@@ -130,7 +130,6 @@ ttyread('Password: ', {silent: true}, function(err, password) {
     }
 
     outStream.write(']\n');
-    outStream.close();
   });
 });
 
@@ -158,7 +157,7 @@ function processAddress(path, last) {
 
   var obj = {
     address: address,
-    threshold: walletMetadata.m,
+    threshold: walletMetadata.credentials.m,
     path: path,
     publicKeys: publicKeys,
     signatures: {}
