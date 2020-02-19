@@ -9,7 +9,7 @@
   "author": "Patrick Nagurny",
   "license": "MIT",
   "dependencies": {
-    "bitcore-wallet-client": "^5.1.2",
+    "bitcore-wallet-client": "^8.16.0",
     "commander": "^2.9.0",
     "jsonstream": "^1.0.3",
     "ttyread": "^1.0.2"
