@@ -59,6 +59,11 @@ ttyread('Password: ', {silent: true}, function(err, password) {
   }
 
   walletMetadata = JSON.parse(decryptedString);
+  const legacyCoPay = !Boolean(walletMetadata.credentials);
+
+  if(legacyCoPay && ['BIP44', 'BIP45'].indexOf(walletMetadata.derivationStrategy) === -1) {
+    throw new Error('Derivation strategy is not BIP44 or BIP45 (' + walletMetadata.derivationStrategy + ')');
+  }
 
   if(!walletMetadata.compliantDerivation) {
     console.error('WARNING: compliantDerivation = false');
@@ -68,11 +73,22 @@ ttyread('Password: ', {silent: true}, function(err, password) {
   networkDerivation = network === 'testnet' ? '1' : '0';
   threshold = walletMetadata.m;
 
-  path = walletMetadata.credentials.rootPath;
+  let path;
+  if (legacyCoPay) {
+    if(walletMetadata.derivationStrategy === 'BIP44') {
+      path = "m/44'/" + networkDerivation + "'/" + walletMetadata.account + "'";
+    } else if(walletMetadata.derivationStrategy === 'BIP45') {
+      path = "m/45'";
+    }
+  } else {
+    path = walletMetadata.credentials.rootPath;
+  }
 
-  hdPrivateKey = new bitcore.HDPrivateKey(walletMetadata.key.xPrivKey).derive(path);
+  const privKey = legacyCoPay ? walletMetadata.xPrivKey : walletMetadata.key.xPrivKey;
+  hdPrivateKey = new bitcore.HDPrivateKey(privKey).derive(path);
 
-  clientXPubKeys = walletMetadata.credentials.publicKeyRing.map(function(ring) {
+  const pubKeyRing = legacyCoPay ? walletMetadata.publicKeyRing : walletMetadata.credentials.publicKeyRing;
+  clientXPubKeys = pubKeyRing.map(function(ring) {
     return new bitcore.HDPublicKey(ring.xPubKey);
   });
 
@@ -81,7 +97,12 @@ ttyread('Password: ', {silent: true}, function(err, password) {
     verbose: true
   });
 
-  client.fromObj(walletMetadata.credentials);
+  if (legacyCoPay) {
+    walletMetadata.version = 2;
+    client.fromObj(walletMetadata);
+  } else {
+    client.fromObj(walletMetadata.credentials);
+  }
 
   client.getStatus({includeExtendedInfo: true}, function(err, status) {
     if(err) {
@@ -111,22 +132,22 @@ ttyread('Password: ', {silent: true}, function(err, password) {
 
     // Derive main addresses
     for(var i = 0; i < receiveAddressIndex - 1; i++) {
-      processAddress(indexPrefix + '0/' + i, false);
+      processAddress(indexPrefix + '0/' + i, false, legacyCoPay);
     }
 
     if(receiveAddressIndex && changeAddressIndex) {
-      processAddress(indexPrefix + '0/' + (receiveAddressIndex - 1), false);
+      processAddress(indexPrefix + '0/' + (receiveAddressIndex - 1), false, legacyCoPay);
     } else if(receiveAddressIndex) {
-      processAddress(indexPrefix + '0/' + (receiveAddressIndex - 1), true);
+      processAddress(indexPrefix + '0/' + (receiveAddressIndex - 1), true, legacyCoPay);
     }
 
     // Derive change addresses
     for(var i = 0; i < changeAddressIndex - 1; i++) {
-      processAddress(indexPrefix + '1/' + i, false);
+      processAddress(indexPrefix + '1/' + i, false, legacyCoPay);
     }
 
     if(changeAddressIndex) {
-      processAddress(indexPrefix + '1/' + (changeAddressIndex - 1), true);
+      processAddress(indexPrefix + '1/' + (changeAddressIndex - 1), true, legacyCoPay);
     }
 
     outStream.write(']\n');
@@ -134,7 +155,7 @@ ttyread('Password: ', {silent: true}, function(err, password) {
 });
 
 
-function processAddress(path, last) {
+function processAddress(path, last, legacyCoPay) {
   if(count % 10 === 0) {
     console.log(count);
   }
@@ -150,14 +171,15 @@ function processAddress(path, last) {
     throw new Error('Public key mismatch: ' + pub.toString());
   }
 
-  var script = bitcore.Script.buildMultisigOut(publicKeys, walletMetadata.credentials.m);
+  const m = legacyCoPay ? walletMetadata.m : walletMetadata.credentials.m;
+  var script = bitcore.Script.buildMultisigOut(publicKeys, m);
   var address = script.toScriptHashOut().toAddress(bitcore.Networks.get(network)).toString();
 
   var signature = Message(message).sign(priv);
 
   var obj = {
     address: address,
-    threshold: walletMetadata.credentials.m,
+    threshold: m,
     path: path,
     publicKeys: publicKeys,
     signatures: {}
