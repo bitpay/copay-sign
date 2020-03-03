@@ -132,22 +132,22 @@ ttyread('Password: ', {silent: true}, function(err, password) {
 
     // Derive main addresses
     for(var i = 0; i < receiveAddressIndex - 1; i++) {
-      processAddress(indexPrefix + '0/' + i, false, legacyCoPay);
+      processAddress(indexPrefix + '0/' + i, false);
     }
 
     if(receiveAddressIndex && changeAddressIndex) {
-      processAddress(indexPrefix + '0/' + (receiveAddressIndex - 1), false, legacyCoPay);
+      processAddress(indexPrefix + '0/' + (receiveAddressIndex - 1), false);
     } else if(receiveAddressIndex) {
-      processAddress(indexPrefix + '0/' + (receiveAddressIndex - 1), true, legacyCoPay);
+      processAddress(indexPrefix + '0/' + (receiveAddressIndex - 1), true);
     }
 
     // Derive change addresses
     for(var i = 0; i < changeAddressIndex - 1; i++) {
-      processAddress(indexPrefix + '1/' + i, false, legacyCoPay);
+      processAddress(indexPrefix + '1/' + i, false);
     }
 
     if(changeAddressIndex) {
-      processAddress(indexPrefix + '1/' + (changeAddressIndex - 1), true, legacyCoPay);
+      processAddress(indexPrefix + '1/' + (changeAddressIndex - 1), true);
     }
 
     outStream.write(']\n');
@@ -155,7 +155,7 @@ ttyread('Password: ', {silent: true}, function(err, password) {
 });
 
 
-function processAddress(path, last, legacyCoPay) {
+function processAddress(path, last) {
   if(count % 10 === 0) {
     console.log(count);
   }
@@ -171,7 +171,7 @@ function processAddress(path, last, legacyCoPay) {
     throw new Error('Public key mismatch: ' + pub.toString());
   }
 
-  const m = legacyCoPay ? walletMetadata.m : walletMetadata.credentials.m;
+  const m = walletMetadata.m || walletMetadata.credentials.m;
   var script = bitcore.Script.buildMultisigOut(publicKeys, m);
   var address = script.toScriptHashOut().toAddress(bitcore.Networks.get(network)).toString();
 
