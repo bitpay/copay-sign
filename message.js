@@ -21,7 +21,8 @@ var Message = function Message(message, currency) {
   if (!(this instanceof Message)) {
     return new Message(message);
   }
-  $.checkArgument(_.isString(message), 'First argument should be a string');
+  this.$ = this.bitcore.util.preconditions;
+  this.$.checkArgument(_.isString(message), 'First argument should be a string');
   this.message = message;
   this.bitcore = bitcoreLibs[currency];
   this.PrivateKey = this.bitcore.PrivateKey;
@@ -32,7 +33,6 @@ var Message = function Message(message, currency) {
   this.Signature = this.bitcore.Signature;
   this.sha256sha256 = this.bitcore.crypto.Hash.sha256sha256;
   this.JSUtil = this.bitcore.util.js;
-  this.$ = this.bitcore.util.preconditions;
   this._ = this.bitcore.deps._;
 
   return this;
