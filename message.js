@@ -19,12 +19,13 @@ const bitcoreLibs = {
  */
 var Message = function Message(message, currency) {
   if (!(this instanceof Message)) {
-    return new Message(message);
+    return new Message(message, currency);
   }
-  this.$ = this.bitcore.util.preconditions;
-  this.$.checkArgument(_.isString(message), 'First argument should be a string');
-  this.message = message;
   this.bitcore = bitcoreLibs[currency];
+  this.$ = this.bitcore.util.preconditions;
+  this._ = this.bitcore.deps._;
+  this.$.checkArgument(this._.isString(message), 'First argument should be a string');
+  this.message = message;
   this.PrivateKey = this.bitcore.PrivateKey;
   this.PublicKey = this.bitcore.PublicKey;
   this.Address = this.bitcore.Address;
@@ -33,7 +34,7 @@ var Message = function Message(message, currency) {
   this.Signature = this.bitcore.Signature;
   this.sha256sha256 = this.bitcore.crypto.Hash.sha256sha256;
   this.JSUtil = this.bitcore.util.js;
-  this._ = this.bitcore.deps._;
+  this.currency = currency;
 
   return this;
 };
@@ -50,7 +51,7 @@ Message.prototype.magicHash = function magicHash() {
 };
 
 Message.prototype._sign = function _sign(privateKey) {
-  $.checkArgument(privateKey instanceof this.PrivateKey,
+  this.$.checkArgument(privateKey instanceof this.PrivateKey,
     'First argument should be an instance of PrivateKey');
   var hash = this.magicHash();
   var ecdsa = new this.ECDSA();
@@ -125,7 +126,7 @@ Message.prototype.verify = function verify(bitcoinAddress, signatureString) {
  * @returns {Message} A new instance of a Message
  */
 Message.fromString = function(str) {
-  return new Message(str);
+  return new Message(str, this.currency);
 };
 
 /**
@@ -138,7 +139,7 @@ Message.fromJSON = function fromJSON(json) {
   if (this.JSUtil.isValidJSON(json)) {
     json = JSON.parse(json);
   }
-  return new Message(json.message);
+  return new Message(json.message, this.currency);
 };
 
 /**

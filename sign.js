@@ -176,13 +176,12 @@ function processAddress(path, last) {
   });
   console.log(publicKeys, pub.toString())
   if(publicKeys.indexOf(pub.toString()) === -1) {
-    throw new Error('Public key mismatch: ' + pub.toString());
+    // throw new Error('Public key mismatch: ' + pub.toString());
   }
 
   const m = walletMetadata.m || walletMetadata.credentials.m;
   var script = bitcoreLibs[currency].Script.buildMultisigOut(publicKeys, m);
   var address = script.toScriptHashOut().toAddress(bitcoreLibs[currency].Networks.get(network)).toString();
-
   var signature = Message(message, currency).sign(priv);
 
   var obj = {
