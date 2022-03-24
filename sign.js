@@ -4,25 +4,33 @@
 var program = require('commander');
 var fs = require('fs');
 var Client = require('bitcore-wallet-client').default;
-var bitcore = require('bitcore-lib');
 var Message = require('./message');
 var sjcl = require('sjcl');
 var ttyread = require('ttyread');
+const CWC = require('crypto-wallet-core');
+
+const bitcoreLibs = {
+  BTC: CWC.BitcoreLib,
+  DOGE: CWC.BitcoreLibDoge,
+  LTC: CWC.BitcoreLibLtc,
+  BCH: CWC.BitcoreLibCash
+};
 
 var BWS_INSTANCE_URL = 'https://bws.bitpay.com/bws/api';
 
 program
-  .usage('<wallet-file> <message-file> <output-file>')
+  .usage('<wallet-file> <message-file> <output-file> <currency>')
   .description('Sign a message with copay private keys')
   .parse(process.argv);
 
-if(program.args.length !== 3) {
+if(program.args.length !== 4) {
   return program.help();
 }
 
 var walletFile = program.args[0];
 var messageFile = program.args[1];
 var outputFile = program.args[2];
+const currency = program.args[3];
 
 var message = fs.readFileSync(messageFile, 'utf8');
 var encryptedString = fs.readFileSync(walletFile, 'utf8');
@@ -85,11 +93,11 @@ ttyread('Password: ', {silent: true}, function(err, password) {
   }
 
   const privKey = legacyCoPay ? walletMetadata.xPrivKey : walletMetadata.key.xPrivKey;
-  hdPrivateKey = new bitcore.HDPrivateKey(privKey).derive(path);
+  hdPrivateKey = new bitcoreLibs[currency].HDPrivateKey(privKey).deriveChild(path);
 
   const pubKeyRing = legacyCoPay ? walletMetadata.publicKeyRing : walletMetadata.credentials.publicKeyRing;
   clientXPubKeys = pubKeyRing.map(function(ring) {
-    return new bitcore.HDPublicKey(ring.xPubKey);
+    return new bitcoreLibs[currency].HDPublicKey(ring.xPubKey);
   });
 
   var client = new Client({
@@ -160,22 +168,22 @@ function processAddress(path, last) {
     console.log(count);
   }
 
-  var priv = hdPrivateKey.derive(path).privateKey;
+  var priv = hdPrivateKey.deriveChild(path).privateKey;
   var pub = priv.publicKey;
 
   var publicKeys = clientXPubKeys.map(function(xPubKey) {
     return xPubKey.derive(path).publicKey.toString();
   });
-
+  console.log(publicKeys, pub.toString())
   if(publicKeys.indexOf(pub.toString()) === -1) {
     throw new Error('Public key mismatch: ' + pub.toString());
   }
 
   const m = walletMetadata.m || walletMetadata.credentials.m;
-  var script = bitcore.Script.buildMultisigOut(publicKeys, m);
-  var address = script.toScriptHashOut().toAddress(bitcore.Networks.get(network)).toString();
+  var script = bitcoreLibs[currency].Script.buildMultisigOut(publicKeys, m);
+  var address = script.toScriptHashOut().toAddress(bitcoreLibs[currency].Networks.get(network)).toString();
 
-  var signature = Message(message).sign(priv);
+  var signature = Message(message, currency).sign(priv);
 
   var obj = {
     address: address,
