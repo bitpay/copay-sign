@@ -3,22 +3,28 @@
 
 var program = require('commander');
 var fs = require('fs');
-var bitcore = require('bitcore-lib');
-var Message = require('./message');
+const CWC = require('crypto-wallet-core');
 var JSONStream = require('jsonstream');
-var Signature = bitcore.crypto.Signature;
+const bitcoreLibs = {
+  BTC: CWC.BitcoreLib,
+  DOGE: CWC.BitcoreLibDoge,
+  LTC: CWC.BitcoreLibLtc,
+  BCH: CWC.BitcoreLibCash
+};
 
 program
-  .usage('<addresses-file> <message-file>')
+  .usage('<addresses-file> <message-file> <currency> <bech32>')
   .description('Verify ownership of addresses')
   .parse(process.argv);
 
-if(program.args.length !== 2) {
+if(program.args.length !== 3 && program.args.length !== 4) {
   return program.help();
 }
 
 var addressesFile = program.args[0];
 var messageFile = program.args[1];
+const currency = program.args[2];
+const bech32 = program.args[3];
 var message = fs.readFileSync(messageFile, 'utf8');
 
 var inStream = fs.createReadStream(addressesFile, 'utf8');
@@ -34,10 +40,15 @@ jsonStream.on('data', function(data) {
     console.log(addressCount);
   }
 
-  var network = new bitcore.Address(data.address).network;
-  var script = bitcore.Script.buildMultisigOut(data.publicKeys, data.threshold);
-  var checkAddress = script.toScriptHashOut().toAddress(network).toString();
-
+  var network = new bitcoreLibs[currency].Address(data.address).network;
+  let nestedWitness;
+  let type;
+  if (bech32) {
+    nestedWitness = false;
+    type = 'witnessscripthash';
+  }
+  let checkAddress = bitcoreLibs[currency].Address.createMultisig(data.publicKeys, data.threshold, network, nestedWitness, type);
+  checkAddress = checkAddress.toString();
   if(checkAddress !== data.address) {
     console.error('Address Mismatch! ' + data.address + ' != ' + checkAddress);
     failCount++;
@@ -49,8 +60,8 @@ jsonStream.on('data', function(data) {
   for(var i = 0; i < data.publicKeys.length; i++) {
     var pubKey = data.publicKeys[i];
     if(data.signatures[pubKey]) {
-      var signature = Signature.fromCompact(new Buffer(data.signatures[pubKey], 'base64'));
-      var verified = Message(message)._verify(new bitcore.PublicKey(pubKey), signature);
+      var signature = bitcoreLibs.BTC.crypto.Signature.fromCompact(new Buffer(data.signatures[pubKey], 'base64'));
+      var verified = bitcoreLibs.BTC.Message(message)._verify(new bitcoreLibs.BTC.PublicKey(pubKey), signature);
       if(verified) {
         validSignatures++;
       } else {
@@ -58,7 +69,6 @@ jsonStream.on('data', function(data) {
       }
     }
   }
-
   if(validSignatures < data.threshold) {
     console.error('Not enough valid signatures for ' + data.address + '!');
     failCount++;

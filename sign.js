@@ -19,11 +19,11 @@ const bitcoreLibs = {
 var BWS_INSTANCE_URL = 'https://bws.bitpay.com/bws/api';
 
 program
-  .usage('<wallet-file> <message-file> <output-file> <currency>')
+  .usage('<wallet-file> <message-file> <output-file> <currency> <bech32>')
   .description('Sign a message with copay private keys')
   .parse(process.argv);
 
-if(program.args.length !== 4) {
+if(program.args.length !== 4 && program.args.length !== 5) {
   return program.help();
 }
 
@@ -31,6 +31,7 @@ var walletFile = program.args[0];
 var messageFile = program.args[1];
 var outputFile = program.args[2];
 const currency = program.args[3];
+const bech32 = program.args[4];
 
 var message = fs.readFileSync(messageFile, 'utf8');
 var encryptedString = fs.readFileSync(walletFile, 'utf8');
@@ -174,14 +175,19 @@ function processAddress(path, last) {
   var publicKeys = clientXPubKeys.map(function(xPubKey) {
     return xPubKey.derive(path).publicKey.toString();
   });
-  console.log(publicKeys, pub.toString())
   if(publicKeys.indexOf(pub.toString()) === -1) {
-    // throw new Error('Public key mismatch: ' + pub.toString());
+    throw new Error('Public key mismatch: ' + pub.toString());
   }
 
   const m = walletMetadata.m || walletMetadata.credentials.m;
-  var script = bitcoreLibs[currency].Script.buildMultisigOut(publicKeys, m);
-  var address = script.toScriptHashOut().toAddress(bitcoreLibs[currency].Networks.get(network)).toString();
+  let nestedWitness;
+  let type;
+  if (bech32) {
+    nestedWitness = false;
+    type = 'witnessscripthash';
+  }
+  var address = bitcoreLibs[currency].Address.createMultisig(publicKeys, m, network, nestedWitness, type);
+  address = address.toString();
   var signature = Message(message, currency).sign(priv);
 
   var obj = {
